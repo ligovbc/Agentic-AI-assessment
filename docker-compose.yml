@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  agentic-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-ai-api
+    ports:
+      - "5000:5000"
+    environment:
+      # Provider Configuration
+      - OPENAI_PROVIDER=${OPENAI_PROVIDER:-openai}
+
+      # OpenAI Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # Azure OpenAI Configuration
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}
+
+      # Model Configuration
+      - FAST_MODEL=${FAST_MODEL:-gpt-3.5-turbo}
+      - SLOW_MODEL=${SLOW_MODEL:-gpt-4-turbo-preview}
+
+      # Flask Configuration
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=${FLASK_DEBUG:-False}
+
+    # Mount .env file for easy configuration
+    env_file:
+      - .env
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    name: agentic-ai-network
