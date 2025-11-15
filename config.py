@@ -20,7 +20,7 @@ class Config:
 
     # Model settings (deployment names for Azure, model names for OpenAI)
     FAST_MODEL = os.getenv("FAST_MODEL", "gpt-4o-mini")
-    SLOW_MODEL = os.getenv("SLOW_MODEL", "gpt-4")
+    SLOW_MODEL = os.getenv("SLOW_MODEL", "gpt-4o")
 
     # Flask settings
     FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))

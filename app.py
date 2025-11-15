@@ -25,6 +25,52 @@ def get_model_name(model_type: str) -> str:
         return Config.FAST_MODEL
 
 
+def calculate_cost(token_usage: dict, model_name: str) -> dict:
+    """
+    Calculate cost based on token usage and model
+
+    Args:
+        token_usage: Dictionary with prompt_tokens, completion_tokens, total_tokens
+        model_name: Name of the model used
+
+    Returns:
+        Dictionary with cost breakdown
+    """
+    # Azure OpenAI pricing (per 1M tokens)
+    if 'gpt-4o-mini' in model_name.lower():
+        # GPT-4o-mini-0718 Global
+        input_price = 0.20844
+        output_price = 0.8338
+        pricing_model = "GPT-4o-mini-0718 Global"
+    elif 'gpt-4o' in model_name.lower():
+        # GPT-4o-2024-1120 Regional
+        input_price = 4.20339
+        output_price = 16.8136
+        pricing_model = "GPT-4o-2024-1120 Regional"
+    else:
+        # Default to gpt-4o-mini pricing
+        input_price = 0.20844
+        output_price = 0.8338
+        pricing_model = "GPT-4o-mini-0718 Global (default)"
+
+    prompt_tokens = token_usage.get('prompt_tokens', 0)
+    completion_tokens = token_usage.get('completion_tokens', 0)
+
+    input_cost = (prompt_tokens / 1_000_000) * input_price
+    output_cost = (completion_tokens / 1_000_000) * output_price
+    total_cost = input_cost + output_cost
+
+    return {
+        "input_cost": round(input_cost, 8),
+        "output_cost": round(output_cost, 8),
+        "total_cost": round(total_cost, 8),
+        "currency": "CAD",
+        "pricing_model": pricing_model,
+        "input_price_per_1m": input_price,
+        "output_price_per_1m": output_price
+    }
+
+
 @app.route("/")
 def home():
     """Health check endpoint"""
@@ -70,8 +116,10 @@ def completions():
             temperature=req.temperature
         )
 
-        # Run self-consistency with chain-of-thought
-        samples, final_answer, weighted_confidence, llm_confidence, agreement_confidence, summary = sc_engine.run_self_consistency(
+        # Run self-consistency with chain-of-thought and reflection
+        (samples, preliminary_answer, final_answer, reflection_reasoning,
+         weighted_confidence, llm_confidence, agreement_confidence,
+         reflection_confidence, summary, token_usage, timing) = sc_engine.run_self_consistency(
             prompt=req.prompt,
             num_samples=req.num_self_consistency,
             num_cot_steps=req.num_cot
@@ -80,126 +128,32 @@ def completions():
         # Get the primary chain-of-thought (from the first sample for consistency)
         primary_cot = samples[0].reasoning_path if samples else []
 
+        # Calculate cost
+        cost_analysis = calculate_cost(token_usage, model_name)
+
         # Build response
         response = AgenticResponse(
             prompt=req.prompt,
             model_used=model_name,
             chain_of_thought=primary_cot,
             self_consistency_samples=samples,
+            preliminary_answer=preliminary_answer,
             final_answer=final_answer,
-            confidence_score=weighted_confidence,
+            confidence_score=reflection_confidence / 100.0,  # Use reflection confidence as primary (convert to 0-1 scale)
             llm_confidence=llm_confidence,
             agreement_confidence=agreement_confidence,
-            reasoning_summary=summary
+            reflection_reasoning=reflection_reasoning,
+            reflection_confidence=reflection_confidence,
+            reasoning_summary=summary,
+            token_usage=token_usage,
+            cost_analysis=cost_analysis,
+            timing=timing
         )
 
         return jsonify(response.model_dump()), 200
 
     except Exception as e:
         app.logger.error(f"Error processing request: {str(e)}")
-        app.logger.error(traceback.format_exc())
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e)
-        }), 500
-
-
-@app.route("/v1/chat/completions", methods=["POST"])
-def chat_completions():
-    """
-    Alternative endpoint with chat-style interface
-
-    Request body:
-    {
-        "messages": [{"role": "user", "content": "Your question"}],
-        "num_self_consistency": 5,
-        "num_cot": 3,
-        "model": "fast",
-        "temperature": 0.7
-    }
-    """
-    try:
-        data = request.get_json()
-
-        if not data:
-            return jsonify({"error": "Request body must be JSON"}), 400
-
-        # Extract prompt from messages
-        messages = data.get("messages", [])
-        if not messages:
-            return jsonify({"error": "messages field is required"}), 400
-
-        # Get the last user message as the prompt
-        user_messages = [msg for msg in messages if msg.get("role") == "user"]
-        if not user_messages:
-            return jsonify({"error": "No user message found"}), 400
-
-        prompt = user_messages[-1].get("content", "")
-
-        # Create request with prompt from messages
-        request_data = {
-            "prompt": prompt,
-            "num_self_consistency": data.get("num_self_consistency", 5),
-            "num_cot": data.get("num_cot", 3),
-            "model": data.get("model", "fast"),
-            "temperature": data.get("temperature", 0.7)
-        }
-
-        try:
-            req = AgenticRequest(**request_data)
-        except ValidationError as e:
-            return jsonify({"error": "Invalid request", "details": e.errors()}), 400
-
-        # Get model name
-        model_name = get_model_name(req.model)
-
-        # Initialize and run self-consistency
-        sc_engine = SelfConsistencyEngine(
-            model_name=model_name,
-            temperature=req.temperature
-        )
-
-        samples, final_answer, weighted_confidence, llm_confidence, agreement_confidence, summary = sc_engine.run_self_consistency(
-            prompt=req.prompt,
-            num_samples=req.num_self_consistency,
-            num_cot_steps=req.num_cot
-        )
-
-        primary_cot = samples[0].reasoning_path if samples else []
-
-        # Build response in chat format
-        response = {
-            "id": "chatcmpl-agentic",
-            "object": "chat.completion",
-            "created": 1234567890,
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": final_answer
-                },
-                "finish_reason": "stop"
-            }],
-            "usage": {
-                "prompt_tokens": len(prompt.split()),
-                "completion_tokens": len(final_answer.split()),
-                "total_tokens": len(prompt.split()) + len(final_answer.split())
-            },
-            "agentic_metadata": {
-                "chain_of_thought": [step.model_dump() for step in primary_cot],
-                "self_consistency_samples": [s.model_dump() for s in samples],
-                "confidence_score": weighted_confidence,
-                "llm_confidence": llm_confidence,
-                "agreement_confidence": agreement_confidence,
-                "reasoning_summary": summary
-            }
-        }
-
-        return jsonify(response), 200
-
-    except Exception as e:
-        app.logger.error(f"Error processing chat request: {str(e)}")
         app.logger.error(traceback.format_exc())
         return jsonify({
             "error": "Internal server error",

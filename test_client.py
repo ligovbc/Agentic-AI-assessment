@@ -49,43 +49,6 @@ class AgenticAIClient:
         response.raise_for_status()
         return response.json()
 
-    def chat_completions(
-        self,
-        message: str,
-        num_self_consistency: int = 5,
-        num_cot: int = 3,
-        model: str = "fast",
-        temperature: float = 0.7
-    ) -> Dict[str, Any]:
-        """
-        Call the /v1/chat/completions endpoint
-
-        Args:
-            message: The user message
-            num_self_consistency: Number of reasoning paths
-            num_cot: Number of chain-of-thought steps
-            model: "fast" or "slow"
-            temperature: Response randomness (0.0-2.0)
-
-        Returns:
-            API response as dictionary
-        """
-        url = f"{self.base_url}/v1/chat/completions"
-
-        data = {
-            "messages": [
-                {"role": "user", "content": message}
-            ],
-            "num_self_consistency": num_self_consistency,
-            "num_cot": num_cot,
-            "model": model,
-            "temperature": temperature
-        }
-
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        return response.json()
-
     def health_check(self) -> Dict[str, Any]:
         """Check if the API is running"""
         url = f"{self.base_url}/"
@@ -94,46 +57,72 @@ class AgenticAIClient:
         return response.json()
 
 
-def print_response(response: Dict[str, Any], endpoint_type: str = "completions"):
-    """Pretty print the API response"""
+def print_response(response: Dict[str, Any]):
+    """Pretty print the API response with step-by-step details"""
 
     print("\n" + "=" * 80)
-    print(f"RESPONSE FROM {endpoint_type.upper()}")
+    print("RESPONSE")
     print("=" * 80)
 
-    if endpoint_type == "completions":
-        print(f"\nPrompt: {response.get('prompt', 'N/A')}")
-        print(f"Model Used: {response.get('model_used', 'N/A')}")
-        print(f"Confidence Score: {response.get('confidence_score', 0):.2%}")
-        print(f"\nReasoning Summary:\n{response.get('reasoning_summary', 'N/A')}")
+    print(f"\nPrompt: {response.get('prompt', 'N/A')}")
+    print(f"Model Used: {response.get('model_used', 'N/A')}")
 
-        print("\n" + "-" * 80)
-        print("CHAIN OF THOUGHT (Primary Path)")
-        print("-" * 80)
-        for step in response.get('chain_of_thought', []):
-            print(f"\nStep {step['step_number']}:")
-            print(f"  Reasoning: {step['reasoning']}")
-            print(f"  Conclusion: {step['intermediate_conclusion']}")
+    print("\n" + "=" * 80)
+    print("STEP 1: GENERATE MULTIPLE SAMPLES (Each with CoT built-in)")
+    print("=" * 80)
+    samples = response.get('self_consistency_samples', [])
+    print(f"Generated {len(samples)} independent reasoning path(s) in parallel\n")
+    for sample in samples:
+        print(f"  === Sample {sample['sample_number']} ===")
+        reasoning_path = sample.get('reasoning_path', [])
+        print(f"  Chain-of-Thought Steps: {len(reasoning_path)}")
+        for step in reasoning_path:
+            print(f"    Step {step['step_number']}: {step['reasoning'][:60]}...")
+        print(f"  Final Answer: {sample['final_answer'][:80]}...")
+        print(f"  LLM Confidence: {sample.get('llm_confidence', 0):.1f}%")
+        print()
 
-        print("\n" + "-" * 80)
-        print("SELF-CONSISTENCY SAMPLES")
-        print("-" * 80)
-        for sample in response.get('self_consistency_samples', []):
-            print(f"\nSample {sample['sample_number']}:")
-            print(f"  Answer: {sample['final_answer'][:100]}...")
+    print("\n" + "=" * 80)
+    print("STEP 2: CALCULATE CONSISTENCY")
+    print("=" * 80)
+    print(f"Summary: {response.get('reasoning_summary', 'N/A')}")
+    print(f"\nLLM Confidence: {response.get('llm_confidence', 0):.1f}%")
+    print(f"Agreement Confidence: {response.get('agreement_confidence', 0):.1f}%")
+    print(f"\nPreliminary Answer (most consistent across samples):")
+    print(f"  {response.get('preliminary_answer', 'N/A')}")
 
-        print("\n" + "-" * 80)
-        print("FINAL ANSWER")
-        print("-" * 80)
-        print(f"\n{response.get('final_answer', 'N/A')}")
+    print("\n" + "=" * 80)
+    print("STEP 3: REFLECTION AT THE END")
+    print("=" * 80)
+    print(f"Reflection analyzes all reasoning paths to produce refined final answer:")
+    print(f"\nReflection Reasoning:")
+    print(f"  {response.get('reflection_reasoning', 'N/A')}")
+    print(f"\nReflection Confidence: {response.get('reflection_confidence', 0):.1f}%")
 
-    elif endpoint_type == "chat":
-        print(f"\nModel: {response.get('model', 'N/A')}")
-        print(f"Message: {response['choices'][0]['message']['content']}")
+    print("\n" + "=" * 80)
+    print("FINAL RESULT")
+    print("=" * 80)
+    print(f"Overall Confidence Score: {response.get('confidence_score', 0):.2%}")
+    print(f"\nFinal Answer (refined by reflection):")
+    print(f"{response.get('final_answer', 'N/A')}")
 
-        metadata = response.get('agentic_metadata', {})
-        print(f"\nConfidence Score: {metadata.get('confidence_score', 0):.2%}")
-        print(f"Reasoning Summary: {metadata.get('reasoning_summary', 'N/A')}")
+    print("\n" + "=" * 80)
+    print("TOKEN USAGE & COST ANALYSIS")
+    print("=" * 80)
+    token_usage = response.get('token_usage', {})
+    cost_analysis = response.get('cost_analysis', {})
+
+    print(f"Prompt Tokens: {token_usage.get('prompt_tokens', 0):,}")
+    print(f"Completion Tokens: {token_usage.get('completion_tokens', 0):,}")
+    print(f"Total Tokens: {token_usage.get('total_tokens', 0):,}")
+
+    print(f"\nCost ({cost_analysis.get('pricing_model', 'N/A')}):")
+    print(f"  Input: ${cost_analysis.get('input_cost', 0):.8f} (${cost_analysis.get('input_price_per_1m', 0)}/1M tokens)")
+    print(f"  Output: ${cost_analysis.get('output_cost', 0):.8f} (${cost_analysis.get('output_price_per_1m', 0)}/1M tokens)")
+    print(f"  Total: ${cost_analysis.get('total_cost', 0):.8f} {cost_analysis.get('currency', 'USD')}")
+
+    timing = response.get('timing', {})
+    print(f"\nTotal Processing Time: {timing.get('total_time', 0):.3f} seconds")
 
     print("\n" + "=" * 80)
 
@@ -154,7 +143,7 @@ def main():
         return
 
     # Example 1: Train speed calculation
-    print("\n\nExample 1: Train speed calculation (completions endpoint)")
+    print("\n\nExample 1: Train speed calculation")
     print("-" * 80)
     try:
         response = client.completions(
@@ -164,22 +153,22 @@ def main():
             model="fast",
             temperature=0.7
         )
-        print_response(response, "completions")
+        print_response(response)
     except Exception as e:
         print(f"Error: {e}")
 
-    # Example 2: Logical reasoning with infinitely wide entrance
-    print("\n\nExample 2: Logical reasoning (chat endpoint)")
+    # Example 2: Logical reasoning
+    print("\n\nExample 2: Logical reasoning")
     print("-" * 80)
     try:
-        response = client.chat_completions(
-            message="Imagine an infinitely wide entrance, which is more likely to pass through it, a military tank or a car?",
-            num_self_consistency=3,
+        response = client.completions(
+            prompt="Imagine an infinitely wide entrance, which is more likely to pass through it, a military tank or a car?",
+            num_self_consistency=1,
             num_cot=1,
             model="fast",
             temperature=0.8
         )
-        print_response(response, "chat")
+        print_response(response)
     except Exception as e:
         print(f"Error: {e}")
 

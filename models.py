@@ -7,7 +7,7 @@ class AgenticRequest(BaseModel):
 
     prompt: str = Field(..., description="The input prompt for the AI")
     num_self_consistency: int = Field(
-        default=3,
+        default=1,
         ge=1,
         le=15,
         description="Number of self-consistency samples to generate"
@@ -59,16 +59,41 @@ class AgenticResponse(BaseModel):
     model_used: str
     chain_of_thought: list[ChainOfThoughtStep]
     self_consistency_samples: list[SelfConsistencySample]
-    final_answer: str
+    preliminary_answer: str = Field(
+        description="The preliminary answer from self-consistency before reflection"
+    )
+    final_answer: str = Field(
+        description="The final refined answer after reflection"
+    )
     confidence_score: float = Field(
-        description="LLM self-assessed confidence (0-1 scale) - averaged from samples with most common answer"
+        description="Final confidence score (0-1 scale) - from reflection analysis of all reasoning paths"
     )
     llm_confidence: float = Field(
         default=0.0,
-        description="Average LLM self-assessed confidence (0-100 scale) - same as confidence_score but on 0-100 scale"
+        description="Average LLM self-assessed confidence (0-100 scale) - from self-consistency samples"
     )
     agreement_confidence: float = Field(
         default=0.0,
         description="Self-consistency agreement percentage (0-100 scale) - how many samples agreed"
     )
+    reflection_reasoning: str = Field(
+        default="",
+        description="The reasoning from the reflection step analyzing all paths"
+    )
+    reflection_confidence: float = Field(
+        default=0.0,
+        description="Reflection confidence in the refined answer (0-100 scale)"
+    )
     reasoning_summary: str
+    token_usage: dict = Field(
+        default_factory=dict,
+        description="Total token usage breakdown (prompt_tokens, completion_tokens, total_tokens)"
+    )
+    cost_analysis: dict = Field(
+        default_factory=dict,
+        description="Cost breakdown (input_cost, output_cost, total_cost, currency, pricing_model)"
+    )
+    timing: dict = Field(
+        default_factory=dict,
+        description="Timing information (total_time in seconds)"
+    )
