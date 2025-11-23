@@ -37,19 +37,24 @@ class ChainOfThoughtEngine:
             ("human", "{instruction}")
         ])
 
-    async def agenerate_cot_steps(self, prompt: str, num_steps: int) -> tuple[List[ChainOfThoughtStep], dict]:
+    async def agenerate_cot_steps(self, prompt: str, num_steps: int, system_prompt: str = None) -> tuple[List[ChainOfThoughtStep], dict]:
         """
         Generate chain-of-thought reasoning steps for a given prompt
 
         Args:
             prompt: The user's input prompt
             num_steps: Number of reasoning steps to generate
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (List of ChainOfThoughtStep objects, token_usage dict)
         """
         steps = []
-        context = f"Original question: {prompt}\n\n"
+        # If system_prompt is provided, add it to context
+        if system_prompt:
+            context = f"System Context: {system_prompt}\n\nOriginal question: {prompt}\n\n"
+        else:
+            context = f"Original question: {prompt}\n\n"
         total_tokens = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
         for step_num in range(1, num_steps + 1):
@@ -126,13 +131,14 @@ class ChainOfThoughtEngine:
 
         return steps, total_tokens
 
-    async def agenerate_final_answer(self, prompt: str, cot_steps: List[ChainOfThoughtStep]) -> tuple[str, float, dict]:
+    async def agenerate_final_answer(self, prompt: str, cot_steps: List[ChainOfThoughtStep], system_prompt: str = None) -> tuple[str, float, dict]:
         """
         Generate final answer based on chain-of-thought steps
 
         Args:
             prompt: Original user prompt
             cot_steps: List of reasoning steps
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (final_answer, confidence_score, token_usage)
@@ -142,7 +148,26 @@ class ChainOfThoughtEngine:
             for s in cot_steps
         ])
 
-        final_prompt = f"""Original question: {prompt}
+        # Build the final prompt with optional system context
+        if system_prompt:
+            final_prompt = f"""System Context: {system_prompt}
+
+Original question: {prompt}
+
+Reasoning steps:
+{steps_summary}
+
+Based on the above chain of reasoning, provide:
+1. A clear, concise final answer to the original question
+2. Your confidence level (0-100) considering:
+   - Strength and validity of your reasoning
+   - Certainty in your conclusion
+   - Any ambiguities, assumptions, or limitations
+
+Return ONLY a JSON object in this exact format:
+{{"answer": "your final answer here", "confidence": 85}}"""
+        else:
+            final_prompt = f"""Original question: {prompt}
 
 Reasoning steps:
 {steps_summary}

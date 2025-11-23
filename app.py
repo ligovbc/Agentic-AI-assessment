@@ -1,12 +1,15 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from config import Config
 from models import AgenticRequest, AgenticResponse
 from self_consistency import SelfConsistencyEngine
 from cot_engine import ChainOfThoughtEngine
 from pydantic import ValidationError
+from pdf_extractor import extract_text_from_pdf, get_pdf_info
 import traceback
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Validate configuration on startup
 try:
@@ -86,21 +89,68 @@ def completions():
     """
     OpenAI-compatible endpoint for agentic completions with CoT and self-consistency
 
-    Request body:
+    Supports two request formats:
+
+    1. JSON (application/json):
     {
         "prompt": "Your question here",
-        "num_self_consistency": 5,  // Number of reasoning paths (1-15)
-        "num_cot": 3,  // Number of CoT steps per path (1-10)
-        "model": "fast",  // "fast" or "slow"
-        "temperature": 0.7  // Optional, 0.0-2.0
+        "system_prompt": "Optional system instructions and context" (optional),
+        "num_self_consistency": 5,
+        "num_cot": 3,
+        "model": "fast",
+        "temperature": 0.7
     }
+
+    2. Form-data with optional PDF (multipart/form-data):
+    - prompt: text (optional if PDF is provided)
+    - system_prompt: text (optional system instructions and context)
+    - pdf_file: file (optional PDF upload)
+    - num_self_consistency: number (default: 5)
+    - num_cot: number (default: 3)
+    - model: text (default: "fast")
+    - temperature: number (default: 0.7)
     """
     try:
-        # Parse and validate request
-        data = request.get_json()
+        pdf_text = None
+        pdf_info = None
 
-        if not data:
-            return jsonify({"error": "Request body must be JSON"}), 400
+        # Check if this is a multipart/form-data request (PDF upload)
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # Handle form-data with optional PDF
+            pdf_file = request.files.get('pdf_file')
+
+            # Extract text from PDF if provided
+            if pdf_file and pdf_file.filename:
+                try:
+                    pdf_text = extract_text_from_pdf(pdf_file)
+                    # Reset file pointer for metadata extraction
+                    pdf_file.stream.seek(0)
+                    pdf_info = get_pdf_info(pdf_file)
+                except ValueError as e:
+                    return jsonify({"error": f"PDF extraction failed: {str(e)}"}), 400
+
+            # Get other form fields
+            data = {
+                "prompt": request.form.get('prompt', ''),
+                "system_prompt": request.form.get('system_prompt'),  # Optional field
+                "num_self_consistency": int(request.form.get('num_self_consistency', 5)),
+                "num_cot": int(request.form.get('num_cot', 3)),
+                "model": request.form.get('model', 'fast'),
+                "temperature": float(request.form.get('temperature', 0.7))
+            }
+
+            # Combine PDF text with prompt if PDF was provided
+            if pdf_text:
+                original_prompt = data.get("prompt", "")
+                if original_prompt:
+                    data["prompt"] = f"PDF Content:\n{pdf_text}\n\nQuestion: {original_prompt}"
+                else:
+                    data["prompt"] = f"PDF Content:\n{pdf_text}\n\nQuestion: Please analyze this document."
+        else:
+            # Handle JSON request
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "Request body must be JSON or form-data"}), 400
 
         try:
             req = AgenticRequest(**data)
@@ -122,7 +172,8 @@ def completions():
          reflection_confidence, summary, token_usage, timing) = sc_engine.run_self_consistency(
             prompt=req.prompt,
             num_samples=req.num_self_consistency,
-            num_cot_steps=req.num_cot
+            num_cot_steps=req.num_cot,
+            system_prompt=req.system_prompt
         )
 
         # Get the primary chain-of-thought (from the first sample for consistency)
@@ -150,7 +201,12 @@ def completions():
             timing=timing
         )
 
-        return jsonify(response.model_dump()), 200
+        # Convert to dict and add PDF info if present
+        response_dict = response.model_dump()
+        if pdf_info:
+            response_dict['pdf_info'] = pdf_info
+
+        return jsonify(response_dict), 200
 
     except Exception as e:
         app.logger.error(f"Error processing request: {str(e)}")

@@ -5,7 +5,11 @@ from typing import Optional, Literal
 class AgenticRequest(BaseModel):
     """Request model for the agentic AI API"""
 
-    prompt: str = Field(..., description="The input prompt for the AI")
+    prompt: str = Field(..., description="The user's question or input prompt")
+    system_prompt: Optional[str] = Field(
+        default=None,
+        description="System prompt to guide the AI's behavior and context"
+    )
     num_self_consistency: int = Field(
         default=1,
         ge=1,

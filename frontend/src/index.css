@@ -1,0 +1,71 @@
+/* BC Government Design System Styles */
+
+@import '@bcgov/bc-sans/css/BCSans.css';
+
+:root {
+  /* BC Gov Color Palette */
+  --bc-blue: #003366;
+  --bc-gold: #fcba19;
+  --bc-blue-light: #38598a;
+  --bc-grey: #f2f2f2;
+  --bc-grey-dark: #606060;
+  --bc-white: #ffffff;
+  --bc-success: #2e8540;
+  --bc-warning: #f9ca54;
+  --bc-error: #d8292f;
+
+  /* Typography */
+  font-family: 'BCSans', 'Noto Sans', Verdana, Arial, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+
+  color: #313132;
+  background-color: var(--bc-grey);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'BCSans', 'Noto Sans', Verdana, Arial, sans-serif;
+  color: var(--bc-blue);
+  margin-top: 0;
+}
+
+/* Accessibility - Focus visible */
+*:focus-visible {
+  outline: 3px solid var(--bc-gold);
+  outline-offset: 2px;
+}
+
+/* Skip to main content link for screen readers */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+}
+
+.skip-to-main:focus {
+  left: 0;
+  top: 0;
+  background: var(--bc-gold);
+  padding: 1rem;
+  text-decoration: none;
+  color: var(--bc-blue);
+}

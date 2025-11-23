@@ -17,35 +17,59 @@ class AgenticAIClient:
     def completions(
         self,
         prompt: str,
+        system_prompt: str = None,
         num_self_consistency: int = 5,
         num_cot: int = 3,
         model: str = "fast",
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        pdf_file_path: str = None
     ) -> Dict[str, Any]:
         """
         Call the /v1/completions endpoint
 
         Args:
-            prompt: The question or prompt
+            prompt: The user's question or prompt (optional if PDF is provided)
+            system_prompt: Optional system instructions and context to guide the AI
             num_self_consistency: Number of reasoning paths
             num_cot: Number of chain-of-thought steps
             model: "fast" or "slow"
             temperature: Response randomness (0.0-2.0)
+            pdf_file_path: Optional path to PDF file to upload and analyze
 
         Returns:
             API response as dictionary
         """
         url = f"{self.base_url}/v1/completions"
 
-        data = {
-            "prompt": prompt,
-            "num_self_consistency": num_self_consistency,
-            "num_cot": num_cot,
-            "model": model,
-            "temperature": temperature
-        }
+        # If PDF file is provided, use multipart/form-data
+        if pdf_file_path:
+            with open(pdf_file_path, 'rb') as pdf_file:
+                files = {'pdf_file': pdf_file}
+                data = {
+                    'prompt': prompt,
+                    'num_self_consistency': str(num_self_consistency),
+                    'num_cot': str(num_cot),
+                    'model': model,
+                    'temperature': str(temperature)
+                }
+                # Add system_prompt if provided
+                if system_prompt:
+                    data['system_prompt'] = system_prompt
+                response = requests.post(url, files=files, data=data)
+        else:
+            # Regular JSON request
+            data = {
+                "prompt": prompt,
+                "num_self_consistency": num_self_consistency,
+                "num_cot": num_cot,
+                "model": model,
+                "temperature": temperature
+            }
+            # Add system_prompt if provided
+            if system_prompt:
+                data["system_prompt"] = system_prompt
+            response = requests.post(url, json=data)
 
-        response = requests.post(url, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -64,8 +88,16 @@ def print_response(response: Dict[str, Any]):
     print("RESPONSE")
     print("=" * 80)
 
-    print(f"\nPrompt: {response.get('prompt', 'N/A')}")
+    print(f"\nPrompt: {response.get('prompt', 'N/A')[:200]}...")
     print(f"Model Used: {response.get('model_used', 'N/A')}")
+
+    # Display PDF info if present
+    pdf_info = response.get('pdf_info')
+    if pdf_info:
+        print(f"\nPDF Processed:")
+        print(f"  Pages: {pdf_info.get('num_pages', 'N/A')}")
+        if pdf_info.get('error'):
+            print(f"  Warning: {pdf_info.get('error')}")
 
     print("\n" + "=" * 80)
     print("STEP 1: GENERATE MULTIPLE SAMPLES (Each with CoT built-in)")
@@ -142,31 +174,48 @@ def main():
         print("Make sure the server is running with: python app.py")
         return
 
-    # Example 1: Train speed calculation
-    print("\n\nExample 1: Train speed calculation")
-    print("-" * 80)
-    try:
-        response = client.completions(
-            prompt="If a train travels 60 kilometers in 1 hour, how far will it travel in 2.5 hours?",
-            num_self_consistency=3,
-            num_cot=1,
-            model="fast",
-            temperature=0.7
-        )
-        print_response(response)
-    except Exception as e:
-        print(f"Error: {e}")
+    # # Example 1: Train speed calculation
+    # print("\n\nExample 1: Train speed calculation")
+    # print("-" * 80)
+    # try:
+    #     response = client.completions(
+    #         prompt="If a train travels 60 kilometers in 1 hour, how far will it travel in 2.5 hours?",
+    #         num_self_consistency=3,
+    #         num_cot=1,
+    #         model="fast",
+    #         temperature=0.7
+    #     )
+    #     print_response(response)
+    # except Exception as e:
+    #     print(f"Error: {e}")
 
-    # Example 2: Logical reasoning
-    print("\n\nExample 2: Logical reasoning")
+    # # Example 2: Logical reasoning
+    # print("\n\nExample 2: Logical reasoning")
+    # print("-" * 80)
+    # try:
+    #     response = client.completions(
+    #         prompt="Imagine an infinitely wide entrance, which is more likely to pass through it, a military tank or a car?",
+    #         num_self_consistency=1,
+    #         num_cot=1,
+    #         model="fast",
+    #         temperature=0.8
+    #     )
+    #     print_response(response)
+    # except Exception as e:
+    #     print(f"Error: {e}")
+
+    # Example 3: PDF Analysis (commented out - uncomment and provide PDF path to test)
+    print("\n\nExample 3: PDF Document Analysis with System Prompt")
     print("-" * 80)
     try:
         response = client.completions(
-            prompt="Imagine an infinitely wide entrance, which is more likely to pass through it, a military tank or a car?",
-            num_self_consistency=1,
+            system_prompt="You are a helpful document analysis assistant. Provide clear, structured summaries of documents focusing on key themes and actionable insights.",
+            prompt="What are the main topics discussed in this document?",
+            num_self_consistency=1,  # Reduced to avoid rate limits
             num_cot=1,
             model="fast",
-            temperature=0.8
+            temperature=0.7,
+            pdf_file_path=r"C:\Users\LIHE\Downloads\Get_Started_With_Smallpdf.pdf"  # Replace with actual PDF path
         )
         print_response(response)
     except Exception as e:

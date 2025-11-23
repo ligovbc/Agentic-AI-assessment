@@ -29,7 +29,8 @@ class SelfConsistencyEngine:
         self,
         sample_num: int,
         prompt: str,
-        num_cot_steps: int
+        num_cot_steps: int,
+        system_prompt: str = None
     ) -> tuple[SelfConsistencySample, dict]:
         """
         Generate a single sample asynchronously
@@ -38,15 +39,16 @@ class SelfConsistencyEngine:
             sample_num: Sample number
             prompt: User's input prompt
             num_cot_steps: Number of CoT steps per path
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (SelfConsistencySample object, token_usage dict)
         """
         # Generate chain-of-thought steps for this sample
-        cot_steps, cot_tokens = await self.cot_engine.agenerate_cot_steps(prompt, num_cot_steps)
+        cot_steps, cot_tokens = await self.cot_engine.agenerate_cot_steps(prompt, num_cot_steps, system_prompt)
 
         # Generate final answer and confidence based on these steps
-        final_answer, llm_confidence, answer_tokens = await self.cot_engine.agenerate_final_answer(prompt, cot_steps)
+        final_answer, llm_confidence, answer_tokens = await self.cot_engine.agenerate_final_answer(prompt, cot_steps, system_prompt)
 
         # Aggregate tokens for this sample
         sample_tokens = {
@@ -67,7 +69,8 @@ class SelfConsistencyEngine:
         self,
         prompt: str,
         num_samples: int,
-        num_cot_steps: int
+        num_cot_steps: int,
+        system_prompt: str = None
     ) -> tuple[List[SelfConsistencySample], dict]:
         """
         Generate multiple independent reasoning paths IN PARALLEL
@@ -76,13 +79,14 @@ class SelfConsistencyEngine:
             prompt: User's input prompt
             num_samples: Number of independent reasoning paths to generate
             num_cot_steps: Number of CoT steps per path
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (List of SelfConsistencySample objects, aggregated token_usage dict)
         """
         # Create tasks for all samples to run in parallel
         tasks = [
-            self._generate_single_sample_async(sample_num, prompt, num_cot_steps)
+            self._generate_single_sample_async(sample_num, prompt, num_cot_steps, system_prompt)
             for sample_num in range(1, num_samples + 1)
         ]
 
@@ -211,7 +215,8 @@ class SelfConsistencyEngine:
         self,
         prompt: str,
         samples: List[SelfConsistencySample],
-        preliminary_answer: str
+        preliminary_answer: str,
+        system_prompt: str = None
     ) -> Tuple[str, str, float, dict]:
         """
         Make a final reflection call with all reasoning paths and answers
@@ -220,6 +225,7 @@ class SelfConsistencyEngine:
             prompt: Original user prompt
             samples: All self-consistency samples with CoT reasoning
             preliminary_answer: The preliminary answer from self-consistency
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (refined_answer, reflection_reasoning, reflection_confidence, token_usage)
@@ -238,8 +244,31 @@ class SelfConsistencyEngine:
 
         reasoning_text = "\n".join(reasoning_summary)
 
-        # Create reflection prompt
-        reflection_prompt = f"""You are analyzing multiple reasoning paths to produce a refined final answer.
+        # Create reflection prompt with optional system context
+        if system_prompt:
+            reflection_prompt = f"""You are analyzing multiple reasoning paths to produce a refined final answer.
+
+SYSTEM CONTEXT:
+{system_prompt}
+
+ORIGINAL QUESTION:
+{prompt}
+
+ALL REASONING PATHS:
+{reasoning_text}
+
+PRELIMINARY ANSWER (most consistent):
+{preliminary_answer}
+
+Based on all the reasoning paths above, provide:
+1. A refined final answer that incorporates the best insights from all paths
+2. Your reasoning for the refined answer
+3. Your confidence level (0-100)
+
+Return ONLY a JSON object in this exact format:
+{{"refined_answer": "your final answer", "reflection_reasoning": "your analysis", "confidence": 85}}"""
+        else:
+            reflection_prompt = f"""You are analyzing multiple reasoning paths to produce a refined final answer.
 
 ORIGINAL QUESTION:
 {prompt}
@@ -311,7 +340,8 @@ Return ONLY a JSON object in this exact format:
         self,
         prompt: str,
         num_samples: int,
-        num_cot_steps: int
+        num_cot_steps: int,
+        system_prompt: str = None
     ) -> Tuple[List[SelfConsistencySample], str, str, str, float, float, float, float, str, dict, dict]:
         """
         Run complete self-consistency pipeline WITH PARALLEL EXECUTION and REFLECTION
@@ -320,6 +350,7 @@ Return ONLY a JSON object in this exact format:
             prompt: User's input prompt
             num_samples: Number of reasoning paths
             num_cot_steps: Number of CoT steps per path
+            system_prompt: Optional system prompt to provide context and instructions
 
         Returns:
             Tuple of (samples, preliminary_answer, final_answer, reflection_reasoning,
@@ -336,16 +367,16 @@ Return ONLY a JSON object in this exact format:
                 import nest_asyncio
                 nest_asyncio.apply()
                 samples, samples_tokens = loop.run_until_complete(
-                    self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps)
+                    self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps, system_prompt)
                 )
             else:
                 samples, samples_tokens = loop.run_until_complete(
-                    self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps)
+                    self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps, system_prompt)
                 )
         except RuntimeError:
             # No event loop exists, create one
             samples, samples_tokens = asyncio.run(
-                self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps)
+                self.generate_multiple_paths_async(prompt, num_samples, num_cot_steps, system_prompt)
             )
 
         # Calculate most consistent answer with weighted hybrid confidence
@@ -356,7 +387,7 @@ Return ONLY a JSON object in this exact format:
         print(f"Preliminary answer: {preliminary_answer[:100]}...")
         try:
             final_answer, reflection_reasoning, reflection_confidence, reflection_tokens = self.reflection_call(
-                prompt, samples, preliminary_answer
+                prompt, samples, preliminary_answer, system_prompt
             )
             print(f"=== REFLECTION COMPLETED ===")
             print(f"Final answer: {final_answer[:100]}...")
