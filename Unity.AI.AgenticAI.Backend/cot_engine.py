@@ -11,6 +11,12 @@ import asyncio
 class ChainOfThoughtEngine:
     """Engine for generating chain-of-thought reasoning using LangChain"""
 
+    # Constants for JSON extraction
+    JSON_CODE_BLOCK = "```json"
+    CODE_BLOCK = "```"
+    JSON_CODE_BLOCK_OFFSET = 7  # Length of "```json"
+    CODE_BLOCK_OFFSET = 3  # Length of "```"
+
     def __init__(self, model_name: str, temperature: float = 0.7):
         # Choose between Azure OpenAI and regular OpenAI
         if Config.OPENAI_PROVIDER == "azure":
@@ -37,6 +43,61 @@ class ChainOfThoughtEngine:
             ("human", "{instruction}")
         ])
 
+    def _build_step_instruction(self, step_num: int, num_steps: int, context: str, steps: List[ChainOfThoughtStep]) -> str:
+        """Build instruction for a specific CoT step"""
+        if step_num == 1:
+            return f"{context}Generate step {step_num} of {num_steps} reasoning steps. What is the first thing we need to consider or break down?"
+
+        previous_steps = "\n".join([
+            f"Step {s.step_number}: {s.reasoning} → {s.intermediate_conclusion}"
+            for s in steps
+        ])
+
+        if step_num == num_steps:
+            return f"{context}Previous steps:\n{previous_steps}\n\nGenerate the final step {step_num} of {num_steps}. Synthesize the previous steps and provide a conclusive reasoning."
+
+        return f"{context}Previous steps:\n{previous_steps}\n\nGenerate step {step_num} of {num_steps}. Build upon the previous reasoning."
+
+    def _update_token_usage(self, response, total_tokens: dict) -> None:
+        """Update token usage from response metadata"""
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            total_tokens["prompt_tokens"] += response.usage_metadata.get("input_tokens", 0)
+            total_tokens["completion_tokens"] += response.usage_metadata.get("output_tokens", 0)
+            total_tokens["total_tokens"] += response.usage_metadata.get("total_tokens", 0)
+        elif hasattr(response, 'response_metadata') and 'token_usage' in response.response_metadata:
+            usage = response.response_metadata['token_usage']
+            total_tokens["prompt_tokens"] += usage.get("prompt_tokens", 0)
+            total_tokens["completion_tokens"] += usage.get("completion_tokens", 0)
+            total_tokens["total_tokens"] += usage.get("total_tokens", 0)
+
+    def _extract_json_content(self, content: str) -> str:
+        """Extract JSON content from markdown code blocks"""
+        if self.JSON_CODE_BLOCK in content:
+            json_start = content.find(self.JSON_CODE_BLOCK) + self.JSON_CODE_BLOCK_OFFSET
+            json_end = content.find(self.CODE_BLOCK, json_start)
+            return content[json_start:json_end].strip()
+
+        if self.CODE_BLOCK in content:
+            json_start = content.find(self.CODE_BLOCK) + self.CODE_BLOCK_OFFSET
+            json_end = content.find(self.CODE_BLOCK, json_start)
+            return content[json_start:json_end].strip()
+
+        return content
+
+    def _parse_step_content(self, content: str) -> tuple[str, str]:
+        """Parse reasoning and conclusion from step content"""
+        try:
+            parsed = json.loads(content)
+            reasoning = parsed.get("reasoning", content)
+            conclusion = parsed.get("intermediate_conclusion", "")
+            return reasoning, conclusion
+        except json.JSONDecodeError:
+            # Fallback: split content
+            parts = content.split("\n", 1)
+            reasoning = parts[0] if parts else content
+            conclusion = parts[1] if len(parts) > 1 else reasoning
+            return reasoning, conclusion
+
     async def agenerate_cot_steps(self, prompt: str, num_steps: int, system_prompt: str = None) -> tuple[List[ChainOfThoughtStep], dict]:
         """
         Generate chain-of-thought reasoning steps for a given prompt
@@ -50,29 +111,12 @@ class ChainOfThoughtEngine:
             Tuple of (List of ChainOfThoughtStep objects, token_usage dict)
         """
         steps = []
-        # If system_prompt is provided, add it to context
-        if system_prompt:
-            context = f"System Context: {system_prompt}\n\nOriginal question: {prompt}\n\n"
-        else:
-            context = f"Original question: {prompt}\n\n"
+        context = f"System Context: {system_prompt}\n\nOriginal question: {prompt}\n\n" if system_prompt else f"Original question: {prompt}\n\n"
         total_tokens = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
         for step_num in range(1, num_steps + 1):
             # Build instruction for this step
-            if step_num == 1:
-                instruction = f"{context}Generate step {step_num} of {num_steps} reasoning steps. What is the first thing we need to consider or break down?"
-            elif step_num == num_steps:
-                previous_steps = "\n".join([
-                    f"Step {s.step_number}: {s.reasoning} → {s.intermediate_conclusion}"
-                    for s in steps
-                ])
-                instruction = f"{context}Previous steps:\n{previous_steps}\n\nGenerate the final step {step_num} of {num_steps}. Synthesize the previous steps and provide a conclusive reasoning."
-            else:
-                previous_steps = "\n".join([
-                    f"Step {s.step_number}: {s.reasoning} → {s.intermediate_conclusion}"
-                    for s in steps
-                ])
-                instruction = f"{context}Previous steps:\n{previous_steps}\n\nGenerate step {step_num} of {num_steps}. Build upon the previous reasoning."
+            instruction = self._build_step_instruction(step_num, num_steps, context, steps)
 
             # Generate step
             try:
@@ -80,38 +124,11 @@ class ChainOfThoughtEngine:
                 response = await self.llm.ainvoke(messages)
 
                 # Track token usage
-                if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                    total_tokens["prompt_tokens"] += response.usage_metadata.get("input_tokens", 0)
-                    total_tokens["completion_tokens"] += response.usage_metadata.get("output_tokens", 0)
-                    total_tokens["total_tokens"] += response.usage_metadata.get("total_tokens", 0)
-                elif hasattr(response, 'response_metadata') and 'token_usage' in response.response_metadata:
-                    usage = response.response_metadata['token_usage']
-                    total_tokens["prompt_tokens"] += usage.get("prompt_tokens", 0)
-                    total_tokens["completion_tokens"] += usage.get("completion_tokens", 0)
-                    total_tokens["total_tokens"] += usage.get("total_tokens", 0)
+                self._update_token_usage(response, total_tokens)
 
                 # Parse response
-                content = response.content.strip()
-
-                # Try to extract JSON if present
-                if "```json" in content:
-                    json_start = content.find("```json") + 7
-                    json_end = content.find("```", json_start)
-                    content = content[json_start:json_end].strip()
-                elif "```" in content:
-                    json_start = content.find("```") + 3
-                    json_end = content.find("```", json_start)
-                    content = content[json_start:json_end].strip()
-
-                try:
-                    parsed = json.loads(content)
-                    reasoning = parsed.get("reasoning", content)
-                    conclusion = parsed.get("intermediate_conclusion", "")
-                except json.JSONDecodeError:
-                    # Fallback: split content
-                    parts = content.split("\n", 1)
-                    reasoning = parts[0] if parts else content
-                    conclusion = parts[1] if len(parts) > 1 else reasoning
+                content = self._extract_json_content(response.content.strip())
+                reasoning, conclusion = self._parse_step_content(content)
 
                 step = ChainOfThoughtStep(
                     step_number=step_num,
@@ -205,14 +222,7 @@ Return ONLY a JSON object in this exact format:
         # Try to parse JSON response
         try:
             # Extract JSON if wrapped in code blocks
-            if "```json" in content:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                content = content[json_start:json_end].strip()
-            elif "```" in content:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                content = content[json_start:json_end].strip()
+            content = self._extract_json_content(content)
 
             parsed = json.loads(content)
             answer = parsed.get("answer", content)

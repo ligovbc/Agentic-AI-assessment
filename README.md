@@ -1,128 +1,270 @@
-# Agentic AI API with Self-Consistency and Chain-of-Thought
+# Agentic AI Assessment with BC Government Frontend
 
-A Flask-based API that implements advanced reasoning techniques using LangChain, including:
+A professional full-stack application implementing advanced AI reasoning techniques with a BC Government-compliant frontend interface.
+
+## Overview
+
+**Stack:**
+- **Frontend**: React + TypeScript + BC Government Design System
+- **Backend**: Flask + Azure OpenAI + Self-Consistency + Chain-of-Thought
+- **Visualization**: Recharts for interactive charts
+- **Accessibility**: WCAG 2.1 AA compliant
+
+**Key Features:**
 - **Chain-of-Thought (CoT)** reasoning: Break down complex problems into logical steps
 - **Self-Consistency**: Generate multiple reasoning paths and select the most consistent answer
-- **Model Selection**: Choose between fast (GPT-3.5) and slow (GPT-4) models
+- **PDF Support**: Upload and analyze PDF documents
+- **Model Selection**: Choose between fast (GPT-4o-mini) and slow (GPT-4o) models
+- **BC Government Design**: Official BC Sans font and color palette
+- **Cost Tracking**: Real-time token usage and cost analysis
+- **Confidence Scoring**: Based on answer agreement and LLM self-assessment
 
-## Features
+## Quick Start (3 Steps)
 
-- OpenAI-compatible API endpoints
-- Configurable chain-of-thought reasoning steps
-- Configurable self-consistency sample count
-- Confidence scoring based on answer agreement
-- Support for both fast and slow models
-- Detailed reasoning paths in responses
+### Prerequisites
+- Python 3.8+ with pip
+- Node.js 18+ with npm
+- OpenAI or Azure OpenAI API key
 
-## Installation
+### Step 1: Start the Backend
 
-### Option 1: Docker (Recommended)
-
-1. Clone the repository:
 ```bash
+# Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Navigate to backend directory
+cd backend
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env and add your API key
+
+# Start Flask server
+python app.py
+```
+
+Backend will run on **http://localhost:5000**
+
+### Step 2: Start the Frontend
+
+Open a **new terminal**:
+
+```bash
+# Navigate to frontend
+cd frontend
+
+# Install dependencies (first time only)
+npm install
+
+# Configure environment variables
+# Create frontend/.env with:
+# VITE_API_URL=http://localhost:5000
+
+# Start development server
+npm run dev
+```
+
+Frontend will run on **http://localhost:5173**
+
+### Step 3: Open in Browser
+
+Navigate to: **http://localhost:5173**
+
+---
+
+## Installation Options
+
+### Option 1: Docker (Recommended for Production)
+
+```bash
+# Clone repository
 git clone <repository-url>
 cd Agentic-AI-assessment
-```
 
-2. Set up environment variables:
-```bash
-cp .env.example .env
-```
+# Set up environment
+cp .env.example backend/.env
+# Edit backend/.env and add your API key
 
-Edit `.env` and add your OpenAI API key:
-```
-OPENAI_API_KEY=sk-your-api-key-here
-FAST_MODEL=gpt-3.5-turbo
-SLOW_MODEL=gpt-4-turbo-preview
-FLASK_PORT=5000
-FLASK_DEBUG=False
-```
-
-3. Build and run with Docker Compose:
-```bash
+# Build and run
+cd backend
 docker-compose up -d
 ```
 
-The API will be available at `http://localhost:5000`
+Backend API available at `http://localhost:5000`
 
 To view logs:
 ```bash
 docker-compose logs -f
 ```
 
-To stop the container:
+To stop:
 ```bash
 docker-compose down
 ```
 
-### Option 2: Local Python Installation
+### Option 2: Local Development
 
-1. Clone the repository:
 ```bash
+# Clone repository
 git clone <repository-url>
 cd Agentic-AI-assessment
-```
 
-2. Create a virtual environment:
-```bash
+# Create virtual environment
 python -m venv venv
 
-# On Windows:
+# Activate virtual environment
+# Windows:
 venv\Scripts\activate
-
-# On macOS/Linux:
+# macOS/Linux:
 source venv/bin/activate
+
+# Install backend dependencies
+pip install -r backend/requirements.txt
+
+# Configure backend
+cp .env.example backend/.env
+# Edit backend/.env with your API key
+
+# Install frontend dependencies
+cd frontend
+npm install
+
+# Create frontend/.env with:
+# VITE_API_URL=http://localhost:5000
 ```
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+---
 
-4. Set up environment variables:
-```bash
-cp .env.example .env
-```
+## Configuration
 
-Edit `.env` and add your OpenAI API key:
-```
+### Backend Environment Variables (backend/.env)
+
+```env
+# Provider Configuration (choose one)
+OPENAI_PROVIDER=openai  # or "azure"
+
+# OpenAI Configuration
 OPENAI_API_KEY=sk-your-api-key-here
-FAST_MODEL=gpt-3.5-turbo
-SLOW_MODEL=gpt-4-turbo-preview
+
+# Azure OpenAI Configuration (if using Azure)
+AZURE_OPENAI_API_KEY=your_azure_key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+
+# Model Configuration
+FAST_MODEL=gpt-4o-mini
+SLOW_MODEL=gpt-4o
+
+# Flask Configuration
 FLASK_PORT=5000
-FLASK_DEBUG=True
+FLASK_DEBUG=False
 ```
 
-## Usage
+### Frontend Environment Variables (frontend/.env)
 
-### Starting the Server
-
-**With Docker:**
-```bash
-docker-compose up -d
+```env
+VITE_API_URL=http://localhost:5000
 ```
 
-**Without Docker:**
-```bash
-python app.py
-# Or use the startup script with environment checks:
-python run.py
+---
+
+## Project Structure
+
+```
+Agentic-AI-assessment/
+├── backend/                    # Backend directory
+│   ├── app.py                  # Flask REST API with CORS
+│   ├── config.py               # Configuration management
+│   ├── models.py               # Pydantic models for validation
+│   ├── self_consistency.py     # Self-consistency engine
+│   ├── cot_engine.py          # Chain-of-thought engine
+│   ├── pdf_extractor.py       # PDF text extraction
+│   ├── test_client.py         # Python test client
+│   ├── requirements.txt        # Python dependencies
+│   ├── Dockerfile             # Docker configuration
+│   ├── docker-compose.yml     # Docker Compose config
+│   └── .env                   # Backend environment variables
+│
+├── frontend/                   # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── Header.tsx     # BC Gov header
+│   │   ├── services/
+│   │   │   └── api.ts         # API client (axios)
+│   │   ├── App.tsx            # Main application
+│   │   ├── App.css            # BC Gov styles
+│   │   ├── index.css          # Global styles
+│   │   └── types.ts           # TypeScript types
+│   ├── .env                   # Frontend environment variables
+│   ├── package.json
+│   └── README.md
+│
+├── README.md                   # This file
+└── .env.example               # Example environment variables
 ```
 
-The server will start on `http://localhost:5000`
+---
 
-### API Endpoints
+## Features
 
-#### 1. `/v1/completions` (POST)
+### BC Government Design System
 
-Main endpoint for agentic completions with CoT and self-consistency.
+✅ Official BC Sans font
+✅ BC Gov color palette (BC Blue #003366, BC Gold #fcba19)
+✅ Professional government styling
+✅ Official branding and logos
+
+### Accessibility (WCAG 2.1 AA)
+
+✅ Keyboard navigation
+✅ Screen reader support
+✅ High contrast colors
+✅ Focus indicators
+✅ ARIA labels
+✅ Skip to main content link
+✅ Semantic HTML
+
+### Visualizations
+
+✅ Confidence bar charts
+✅ Token usage pie charts
+✅ Real-time cost tracking
+✅ Chain-of-thought step display
+✅ Self-consistency sample comparison
+
+### PDF Support
+
+✅ Upload PDF documents
+✅ Automatic text extraction
+✅ Combine with custom prompts
+✅ Display PDF metadata
+
+---
+
+## API Documentation
+
+### Endpoints
+
+#### 1. Health Check
+```
+GET http://localhost:5000/
+```
+
+Returns API status and version.
+
+#### 2. Completions (JSON)
+```
+POST http://localhost:5000/v1/completions
+Content-Type: application/json
+```
 
 **Request:**
 ```json
 {
-  "prompt": "What is the capital of France and why is it historically important?",
-  "num_self_consistency": 5,
-  "num_cot": 3,
+  "prompt": "What is the capital of France?",
+  "system_prompt": "You are a helpful assistant",
+  "num_self_consistency": 3,
+  "num_cot": 2,
   "model": "fast",
   "temperature": 0.7
 }
@@ -130,199 +272,411 @@ Main endpoint for agentic completions with CoT and self-consistency.
 
 **Parameters:**
 - `prompt` (required): Your question or prompt
-- `num_self_consistency` (optional, default: 5): Number of independent reasoning paths (1-15)
-- `num_cot` (optional, default: 3): Number of chain-of-thought steps per path (1-10)
-- `model` (optional, default: "fast"): "fast" for GPT-4o-mini or "slow" for GPT-4
+- `system_prompt` (optional): System instructions for the AI
+- `num_self_consistency` (optional, default: 5): Number of reasoning paths (1-10)
+- `num_cot` (optional, default: 3): Chain-of-thought steps per path (1-5)
+- `model` (optional, default: "fast"): "fast" (GPT-4o-mini) or "slow" (GPT-4o)
 - `temperature` (optional, default: 0.7): Response randomness (0.0-2.0)
 
 **Response:**
 ```json
 {
-  "prompt": "What is the capital of France...",
+  "prompt": "What is the capital of France?",
   "model_used": "gpt-4o-mini",
-  "chain_of_thought": [
-    {
-      "step_number": 1,
-      "reasoning": "First, we need to identify the capital city...",
-      "intermediate_conclusion": "Paris is the capital of France"
-    },
-    ...
-  ],
+  "final_answer": "Paris is the capital of France...",
+  "reflection_reasoning": "The analysis confirms...",
+  "reasoning_summary": "Generated 3 independent reasoning paths...",
+  "llm_confidence": 95.0,
   "self_consistency_samples": [
     {
       "sample_number": 1,
-      "reasoning_path": [...],
-      "final_answer": "Paris is the capital..."
-    },
-    ...
+      "reasoning_path": [
+        {
+          "step_number": 1,
+          "reasoning": "First, identify the capital city..."
+        }
+      ],
+      "final_answer": "Paris",
+      "llm_confidence": 95.0
+    }
   ],
-  "final_answer": "Paris is the capital of France...",
-  "confidence_score": 0.95,
-  "reasoning_summary": "Generated 5 independent reasoning paths. Consistency score: 95%"
-}
-```
-
-#### 2. `/v1/chat/completions` (POST)
-
-Alternative chat-style endpoint compatible with OpenAI's chat format.
-
-**Request:**
-```json
-{
-  "messages": [
-    {"role": "user", "content": "Explain quantum computing in simple terms"}
-  ],
-  "num_self_consistency": 5,
-  "num_cot": 3,
-  "model": "fast",
-  "temperature": 0.7
-}
-```
-
-**Response:**
-```json
-{
-  "id": "chatcmpl-agentic",
-  "object": "chat.completion",
-  "model": "gpt-4o-mini",
-  "choices": [{
-    "message": {
-      "role": "assistant",
-      "content": "Quantum computing is..."
-    },
-    "finish_reason": "stop"
-  }],
-  "agentic_metadata": {
-    "chain_of_thought": [...],
-    "self_consistency_samples": [...],
-    "confidence_score": 0.92,
-    "reasoning_summary": "..."
+  "token_usage": {
+    "prompt_tokens": 150,
+    "completion_tokens": 300,
+    "total_tokens": 450
+  },
+  "cost_analysis": {
+    "input_cost": 0.000075,
+    "output_cost": 0.00045,
+    "total_cost": 0.000525,
+    "currency": "USD"
+  },
+  "timing": {
+    "total_time": 2.5
   }
 }
 ```
 
-#### 3. `/` (GET)
-
-Health check endpoint.
-
-## Python Client Example
-
-```python
-import requests
-
-url = "http://localhost:5000/v1/completions"
-
-request_data = {
-    "prompt": "If I have 5 apples and give away 2, then buy 3 more, how many do I have?",
-    "num_self_consistency": 5,
-    "num_cot": 3,
-    "model": "fast",
-    "temperature": 0.7
-}
-
-response = requests.post(url, json=request_data)
-result = response.json()
-
-print("Final Answer:", result["final_answer"])
-print("Confidence:", result["confidence_score"])
-print("\nReasoning Steps:")
-for step in result["chain_of_thought"]:
-    print(f"Step {step['step_number']}: {step['reasoning']}")
+#### 3. Completions with PDF
+```
+POST http://localhost:5000/v1/completions
+Content-Type: multipart/form-data
 ```
 
-See `test_client.py` for a complete working example.
+**Parameters:**
+- `pdf_file`: PDF file (form data)
+- `prompt`: Question about the PDF
+- `num_self_consistency`: Number of samples
+- `num_cot`: CoT steps
+- `model`: "fast" or "slow"
+- `temperature`: 0.0-2.0
+
+**Additional Response Fields:**
+```json
+{
+  "pdf_info": {
+    "num_pages": 5,
+    "error": null
+  }
+}
+```
+
+---
+
+## Usage Examples
+
+### Example 1: Simple Question
+
+**Input:**
+```
+Prompt: "If a train travels 60 km in 1 hour, how far will it travel in 2.5 hours?"
+Self-Consistency: 3
+Chain-of-Thought: 2
+Model: Fast
+```
+
+**Process:**
+1. System generates 3 independent reasoning paths
+2. Each path uses 2 chain-of-thought steps
+3. Answers are compared for consistency
+4. Most consistent answer is selected
+
+**Output:**
+- Final answer with confidence score
+- All reasoning paths displayed
+- Cost analysis and timing
+
+### Example 2: PDF Analysis
+
+**Input:**
+```
+PDF: research_paper.pdf
+Prompt: "What are the main findings in this document?"
+Self-Consistency: 5
+Chain-of-Thought: 3
+Model: Slow
+```
+
+**Process:**
+1. PDF text is extracted automatically
+2. Text is combined with your prompt
+3. AI analyzes with enhanced reasoning
+4. Multiple reasoning paths ensure accuracy
+
+---
 
 ## Architecture
 
-### Components
+### System Flow
 
-1. **app.py**: Flask application with API endpoints
-2. **config.py**: Configuration management and environment variables
+```
+┌─────────────────┐         ┌─────────────────┐
+│  React Frontend │ ◄─────► │  Flask Backend  │
+│  (Port 5173)    │  HTTP   │  (Port 5000)    │
+│  BC Design      │  CORS   │  Agentic AI     │
+└─────────────────┘         └─────────────────┘
+                                     │
+                                     ▼
+                            ┌─────────────────┐
+                            │ Azure OpenAI /  │
+                            │    OpenAI API   │
+                            └─────────────────┘
+```
+
+### Backend Components
+
+1. **app.py**: Flask REST API with CORS support
+2. **config.py**: Environment configuration management
 3. **models.py**: Pydantic models for request/response validation
-4. **cot_engine.py**: Chain-of-thought reasoning implementation
-5. **self_consistency.py**: Self-consistency mechanism with multiple reasoning paths
+4. **cot_engine.py**: Chain-of-thought reasoning using LangChain
+5. **self_consistency.py**: Self-consistency mechanism with voting
+6. **pdf_extractor.py**: PDF text extraction using pdfplumber
+
+### Frontend Components
+
+1. **Header.tsx**: BC Government branded header
+2. **App.tsx**: Main application with form and results display
+3. **api.ts**: Axios-based API client
+4. **types.ts**: TypeScript interfaces
 
 ### How It Works
 
-1. **Request Validation**: Incoming requests are validated using Pydantic models
-2. **Model Selection**: Based on the "fast" or "slow" parameter, the appropriate LLM is selected
+1. **Request Validation**: Pydantic validates incoming requests
+2. **Model Selection**: Fast (GPT-4o-mini) or Slow (GPT-4o) model
 3. **Self-Consistency Generation**:
-   - Multiple independent reasoning paths are generated
-   - Each path uses chain-of-thought to break down the problem
-4. **Chain-of-Thought**:
-   - Each reasoning path is broken into N steps
-   - Each step builds on previous steps
-   - Steps include reasoning and intermediate conclusions
-5. **Answer Aggregation**:
-   - All reasoning paths produce final answers
-   - The most consistent answer is selected
-   - Confidence score is calculated based on agreement
-6. **Response**: Detailed response includes all reasoning paths, final answer, and confidence
+   - Multiple independent reasoning paths created
+   - Each uses chain-of-thought for step-by-step reasoning
+4. **Answer Aggregation**:
+   - Answers from all paths collected
+   - Most consistent answer selected
+   - Confidence calculated from agreement
+5. **Reflection**: Final answer reviewed and refined
+6. **Response**: Complete details returned with costs
 
-## Configuration
-
-### Environment Variables
-
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `FAST_MODEL`: Model for "fast" mode (default: gpt-4o-mini)
-- `SLOW_MODEL`: Model for "slow" mode (default: gpt-4)
-- `FLASK_PORT`: Port to run the server on (default: 5000)
-- `FLASK_DEBUG`: Enable debug mode (default: True)
-
-### Limits
-
-- Max chain-of-thought steps: 10
-- Max self-consistency samples: 15
-- Temperature range: 0.0 - 2.0
+---
 
 ## Testing
 
-Run the test client:
+### Backend Testing
 
-**Without Docker:**
+Run the Python test client:
+
 ```bash
+cd backend
 python test_client.py
 ```
 
-**With Docker:**
-```bash
-# Install requests in your local environment first
-pip install requests
+The test client includes examples for:
+- Simple math problems
+- Complex reasoning
+- Different parameter configurations
 
-# Then run the test client against the containerized API
-python test_client.py
+### Frontend Testing
+
+```bash
+cd frontend
+npm run build  # Check for TypeScript errors
 ```
+
+Test in browser:
+1. Enter a prompt
+2. Adjust parameters
+3. Submit and view results
+4. Try uploading a PDF
+
+---
+
+## Building for Production
+
+### Frontend Build
+
+```bash
+cd frontend
+npm run build
+```
+
+Output will be in `frontend/dist/`
+
+Preview production build:
+```bash
+npm run preview
+```
+
+### Backend Docker Build
+
+```bash
+cd backend
+docker build -t agentic-ai .
+docker run -p 5000:5000 --env-file .env agentic-ai
+```
+
+---
+
+## Troubleshooting
+
+### Frontend can't connect to backend
+
+**Solutions:**
+1. Check backend is running: `cd backend && python app.py`
+2. Verify `VITE_API_URL` in `frontend/.env`
+3. Check browser console for CORS errors
+4. Ensure `flask-cors` is installed: `pip install flask-cors`
+
+### "Module not found" errors (Frontend)
+
+```bash
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### "Module not found" errors (Backend)
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### Port already in use
+
+**Backend:**
+- Change `FLASK_PORT` in `backend/.env`
+
+**Frontend:**
+- Edit `frontend/vite.config.ts` and change port
+
+### BC Sans font not loading
+
+```bash
+cd frontend
+npm install @bcgov/bc-sans
+```
+
+### Docker build fails
+
+1. Check Docker is running
+2. Verify `backend/.env` exists
+3. Check for pywin32 or Windows-specific dependencies in requirements.txt
+
+### API returns 401 error
+
+1. Check API key in `backend/.env`
+2. Verify `OPENAI_PROVIDER` is set correctly ("openai" or "azure")
+3. For Azure: Check endpoint URL and API version
+
+---
+
+## Performance Considerations
+
+### Model Selection
+
+- **Fast (GPT-4o-mini)**: Lower cost, faster responses, suitable for most tasks
+- **Slow (GPT-4o)**: Higher cost, better reasoning, use for complex problems
+
+### Parameter Tuning
+
+- **Self-consistency samples**: More samples = higher confidence but slower and more expensive
+- **CoT steps**: More steps = deeper reasoning but slower responses
+- **Temperature**: Lower = more consistent, Higher = more creative
+
+### Recommended Settings
+
+**Simple questions:**
+```
+model: "fast"
+num_self_consistency: 3
+num_cot: 2
+temperature: 0.5
+```
+
+**Complex reasoning:**
+```
+model: "slow"
+num_self_consistency: 7
+num_cot: 4
+temperature: 0.7
+```
+
+### Limits
+
+- Max chain-of-thought steps: 5
+- Max self-consistency samples: 10
+- Temperature range: 0.0 - 2.0
+- PDF size: Keep under 10 pages for faster processing
+
+---
+
+## Security
+
+### Development
+
+- CORS enabled for all origins (OK for local dev)
+- API keys in `.env` files (never commit!)
+- File uploads validated (PDF only)
+
+### Production Checklist
+
+- [ ] Update CORS in `backend/app.py`:
+  ```python
+  CORS(app, origins=["https://your-domain.gov.bc.ca"])
+  ```
+- [ ] Use HTTPS with SSL certificates
+- [ ] Implement rate limiting
+- [ ] Validate all inputs on backend
+- [ ] Use environment variables for all secrets
+- [ ] Enable logging and monitoring
+- [ ] Set `FLASK_DEBUG=False`
+- [ ] Implement authentication/authorization
+- [ ] Regular security audits
+
+---
+
+## BC Government Standards
+
+This application follows:
+
+- ✅ BC Web Accessibility Guidelines
+- ✅ BC Government Digital Design System
+- ✅ WCAG 2.1 Level AA compliance
+- ✅ BC Privacy Guidelines
+- ✅ BC Security Standards
+
+---
 
 ## Error Handling
 
 The API returns appropriate HTTP status codes:
-- 200: Success
-- 400: Invalid request (validation error)
-- 500: Internal server error
+- **200**: Success
+- **400**: Invalid request (validation error)
+- **500**: Internal server error
 
-Error responses include details:
+Error response format:
 ```json
 {
   "error": "Invalid request",
+  "message": "Detailed error message",
   "details": [...]
 }
 ```
 
-## Performance Considerations
+---
 
-- **Fast model (GPT-4o-mini)**: Lower cost, faster responses, suitable for most tasks
-- **Slow model (GPT-4)**: Higher cost, better reasoning, use for complex problems
-- **Self-consistency samples**: More samples = higher confidence but slower and more expensive
-- **CoT steps**: More steps = deeper reasoning but slower responses
+## Development Tips
 
-Recommended settings:
-- Simple questions: `model="fast"`, `num_self_consistency=3`, `num_cot=2`
-- Complex reasoning: `model="slow"`, `num_self_consistency=7`, `num_cot=5`
+- Use **Fast model** for development (cheaper, faster)
+- Start with **1-2 samples** for quick testing
+- Check **browser console** and **backend logs** for errors
+- Use **network tab** in DevTools to debug API calls
+- Test with small PDFs first (1-2 pages)
+- Monitor costs in the response for budget tracking
+
+---
 
 ## License
 
 MIT
 
+---
+
+## Support
+
+For issues:
+1. Check logs (browser console + backend terminal)
+2. Verify all dependencies installed
+3. Ensure both servers running
+4. Check environment variables configured
+5. Review network tab in browser DevTools
+
+---
+
 ## Contributing
 
-Contributions welcome! Please open an issue or submit a pull request.
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
+
+**Enjoy your BC Government compliant Agentic AI Assessment tool!**

@@ -7,7 +7,7 @@ import { Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recha
 
 function App() {
   const [formData, setFormData] = useState<AgenticRequest>({
-    prompt: 'If a train travels 60 kilometers in 1 hour, how far will it travel in 2.5 hours?',
+    prompt: '',
     system_prompt: '',
     num_self_consistency: 3,
     num_cot: 2,
@@ -19,21 +19,28 @@ function App() {
   const [response, setResponse] = useState<AgenticResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const parseInputValue = (name: string, value: string): string | number => {
+    if (['num_self_consistency', 'num_cot'].includes(name)) {
+      return Number.parseInt(value);
+    }
+    if (name === 'temperature') {
+      return Number.parseFloat(value);
+    }
+    return value;
+  };
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: ['num_self_consistency', 'num_cot'].includes(name)
-        ? parseInt(value)
-        : name === 'temperature'
-        ? parseFloat(value)
-        : value
+      [name]: parseInputValue(name, value)
     }));
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setPdfFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      setPdfFile(file);
     }
   };
 
@@ -231,10 +238,12 @@ function App() {
                 <h2>Results Overview</h2>
 
                 {response.pdf_info && (
-                  <div className="pdf-info" role="status">
-                    <strong>PDF Processed:</strong> {response.pdf_info.num_pages} pages
-                    {response.pdf_info.error && <div>Warning: {response.pdf_info.error}</div>}
-                  </div>
+                 <output className="pdf-info">
+                    <strong>PDF Processed:</strong>
+                    {response.pdf_info.num_pages} pages
+                    {response.pdf_info.error && <div>Warning:
+                    {response.pdf_info.error}</div>}
+                 </output>
                 )}
 
                 <div className="stats-grid">
@@ -327,29 +336,34 @@ function App() {
                 </div>
 
                 <div className="chart-container">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Prompt Tokens', value: response.token_usage.prompt_tokens },
-                          { name: 'Completion Tokens', value: response.token_usage.completion_tokens },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {[0, 1].map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {(() => {
+                    const tokenData = [
+                      { name: 'Prompt Tokens', value: response.token_usage.prompt_tokens },
+                      { name: 'Completion Tokens', value: response.token_usage.completion_tokens },
+                    ];
+                    return (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={tokenData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {tokenData.map((entry, index) => (
+                              <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
                 </div>
               </div>
             </>

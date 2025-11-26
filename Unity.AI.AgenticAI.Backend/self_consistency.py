@@ -182,7 +182,7 @@ class SelfConsistencyEngine:
 
         # Create summary
         summary = self._create_consistency_summary(
-            samples, answer_counts, primary_confidence, avg_llm_confidence, agreement_confidence
+            samples, answer_counts, avg_llm_confidence, agreement_confidence
         )
 
         return final_answer, primary_confidence, avg_llm_confidence, agreement_confidence, summary
@@ -191,7 +191,6 @@ class SelfConsistencyEngine:
         self,
         samples: List[SelfConsistencySample],
         answer_counts: Counter,
-        primary_confidence: float,
         llm_confidence: float,
         agreement_confidence: float
     ) -> str:
@@ -246,7 +245,7 @@ class SelfConsistencyEngine:
 
         # Create reflection prompt with optional system context
         if system_prompt:
-            reflection_prompt = f"""You are analyzing multiple reasoning paths to produce a refined final answer.
+            reflection_prompt = """You are analyzing multiple reasoning paths to produce a refined final answer.
 
 SYSTEM CONTEXT:
 {system_prompt}
@@ -268,7 +267,7 @@ Based on all the reasoning paths above, provide:
 Return ONLY a JSON object in this exact format:
 {{"refined_answer": "your final answer", "reflection_reasoning": "your analysis", "confidence": 85}}"""
         else:
-            reflection_prompt = f"""You are analyzing multiple reasoning paths to produce a refined final answer.
+            reflection_prompt = """You are analyzing multiple reasoning paths to produce a refined final answer.
 
 ORIGINAL QUESTION:
 {prompt}

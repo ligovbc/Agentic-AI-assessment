@@ -48,8 +48,8 @@ def extract_text_from_pdf(pdf_file) -> str:
         if tmp_path and os.path.exists(tmp_path):
             try:
                 os.unlink(tmp_path)
-            except:
-                pass
+            except OSError:
+                pass  # Ignore errors when cleaning up temporary file
 
 
 def get_pdf_info(pdf_file) -> dict:
@@ -87,5 +87,5 @@ def get_pdf_info(pdf_file) -> dict:
         if tmp_path and os.path.exists(tmp_path):
             try:
                 os.unlink(tmp_path)
-            except:
-                pass
+            except OSError:
+                pass  # Ignore errors when cleaning up temporary file

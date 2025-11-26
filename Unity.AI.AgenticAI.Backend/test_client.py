@@ -94,7 +94,7 @@ def print_response(response: Dict[str, Any]):
     # Display PDF info if present
     pdf_info = response.get('pdf_info')
     if pdf_info:
-        print(f"\nPDF Processed:")
+        print("\nPDF Processed:")
         print(f"  Pages: {pdf_info.get('num_pages', 'N/A')}")
         if pdf_info.get('error'):
             print(f"  Warning: {pdf_info.get('error')}")
@@ -120,14 +120,14 @@ def print_response(response: Dict[str, Any]):
     print(f"Summary: {response.get('reasoning_summary', 'N/A')}")
     print(f"\nLLM Confidence: {response.get('llm_confidence', 0):.1f}%")
     print(f"Agreement Confidence: {response.get('agreement_confidence', 0):.1f}%")
-    print(f"\nPreliminary Answer (most consistent across samples):")
+    print("\nPreliminary Answer (most consistent across samples):")
     print(f"  {response.get('preliminary_answer', 'N/A')}")
 
     print("\n" + "=" * 80)
     print("STEP 3: REFLECTION AT THE END")
     print("=" * 80)
-    print(f"Reflection analyzes all reasoning paths to produce refined final answer:")
-    print(f"\nReflection Reasoning:")
+    print("Reflection analyzes all reasoning paths to produce refined final answer:")
+    print("\nReflection Reasoning:")
     print(f"  {response.get('reflection_reasoning', 'N/A')}")
     print(f"\nReflection Confidence: {response.get('reflection_confidence', 0):.1f}%")
 
@@ -135,7 +135,7 @@ def print_response(response: Dict[str, Any]):
     print("FINAL RESULT")
     print("=" * 80)
     print(f"Overall Confidence Score: {response.get('confidence_score', 0):.2%}")
-    print(f"\nFinal Answer (refined by reflection):")
+    print("\nFinal Answer (refined by reflection):")
     print(f"{response.get('final_answer', 'N/A')}")
 
     print("\n" + "=" * 80)

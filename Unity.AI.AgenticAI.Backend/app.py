@@ -28,6 +28,58 @@ def get_model_name(model_type: str) -> str:
         return Config.FAST_MODEL
 
 
+def parse_request_data():
+    """
+    Parse request data from either JSON or multipart/form-data
+
+    Returns:
+        Tuple of (data dict, pdf_info dict or None)
+    """
+    pdf_text = None
+    pdf_info = None
+
+    # Check if this is a multipart/form-data request (PDF upload)
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        pdf_file = request.files.get('pdf_file')
+
+        # Extract text from PDF if provided
+        if pdf_file and pdf_file.filename:
+            try:
+                pdf_text = extract_text_from_pdf(pdf_file)
+                pdf_file.stream.seek(0)
+                pdf_info = get_pdf_info(pdf_file)
+            except ValueError as e:
+                raise ValueError(f"PDF extraction failed: {str(e)}")
+
+        # Get other form fields
+        data = {
+            "prompt": request.form.get('prompt', ''),
+            "system_prompt": request.form.get('system_prompt'),
+            "num_self_consistency": int(request.form.get('num_self_consistency', 5)),
+            "num_cot": int(request.form.get('num_cot', 3)),
+            "model": request.form.get('model', 'fast'),
+            "temperature": float(request.form.get('temperature', 0.7))
+        }
+
+        # Combine PDF text with prompt if PDF was provided
+        if pdf_text:
+            data["prompt"] = _combine_pdf_with_prompt(pdf_text, data.get("prompt", ""))
+    else:
+        # Handle JSON request
+        data = request.get_json()
+        if not data:
+            raise ValueError("Request body must be JSON or form-data")
+
+    return data, pdf_info
+
+
+def _combine_pdf_with_prompt(pdf_text: str, original_prompt: str) -> str:
+    """Combine PDF text with user prompt"""
+    if original_prompt:
+        return f"PDF Content:\n{pdf_text}\n\nQuestion: {original_prompt}"
+    return f"PDF Content:\n{pdf_text}\n\nQuestion: Please analyze this document."
+
+
 def calculate_cost(token_usage: dict, model_name: str) -> dict:
     """
     Calculate cost based on token usage and model
@@ -111,52 +163,21 @@ def completions():
     - temperature: number (default: 0.7)
     """
     try:
-        pdf_text = None
-        pdf_info = None
+        # Parse request data
+        data, pdf_info = parse_request_data()
 
-        # Check if this is a multipart/form-data request (PDF upload)
-        if request.content_type and 'multipart/form-data' in request.content_type:
-            # Handle form-data with optional PDF
-            pdf_file = request.files.get('pdf_file')
-
-            # Extract text from PDF if provided
-            if pdf_file and pdf_file.filename:
-                try:
-                    pdf_text = extract_text_from_pdf(pdf_file)
-                    # Reset file pointer for metadata extraction
-                    pdf_file.stream.seek(0)
-                    pdf_info = get_pdf_info(pdf_file)
-                except ValueError as e:
-                    return jsonify({"error": f"PDF extraction failed: {str(e)}"}), 400
-
-            # Get other form fields
-            data = {
-                "prompt": request.form.get('prompt', ''),
-                "system_prompt": request.form.get('system_prompt'),  # Optional field
-                "num_self_consistency": int(request.form.get('num_self_consistency', 5)),
-                "num_cot": int(request.form.get('num_cot', 3)),
-                "model": request.form.get('model', 'fast'),
-                "temperature": float(request.form.get('temperature', 0.7))
-            }
-
-            # Combine PDF text with prompt if PDF was provided
-            if pdf_text:
-                original_prompt = data.get("prompt", "")
-                if original_prompt:
-                    data["prompt"] = f"PDF Content:\n{pdf_text}\n\nQuestion: {original_prompt}"
-                else:
-                    data["prompt"] = f"PDF Content:\n{pdf_text}\n\nQuestion: Please analyze this document."
-        else:
-            # Handle JSON request
-            data = request.get_json()
-            if not data:
-                return jsonify({"error": "Request body must be JSON or form-data"}), 400
-
+        # Validate request
         try:
             req = AgenticRequest(**data)
         except ValidationError as e:
             return jsonify({"error": "Invalid request", "details": e.errors()}), 400
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Error parsing request: {str(e)}")
+        return jsonify({"error": "Invalid request format"}), 400
 
+    try:
         # Get model name
         model_name = get_model_name(req.model)
 
